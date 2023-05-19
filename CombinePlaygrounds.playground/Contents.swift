@@ -2,29 +2,55 @@ import UIKit
 import Combine
 
 
-let center = NotificationCenter.default
-let myNotification = Notification.Name("SimpleTypeNotification")
-let publisher = NotificationCenter.default .publisher(for: myNotification, object: nil)
+var subscriptions = Set<AnyCancellable>()
 
-let observer = center.addObserver(
-    forName: myNotification, object: nil, queue: nil) { notification in
-        print("SimpleTypeNotification received!")
-    }
-
-let subscription = publisher.sink{ value in
-    print("subscription \(value.object) received!")
+public func main(action: () -> Void) {
+    action()
 }
 
-center.post(name: myNotification, object: nil) // 6
-center.post(name: myNotification, object: 1) // 6
-center.post(name: myNotification, object: "123aa") // 6
-center.removeObserver(observer)
-subscription.cancel()
+// 1. Создайте пример, который публикует коллекцию чисел от 1 до 100, и используйте операторы фильтрации, чтобы выполнить следующие действия:
+// Пропустите первые 50 значений, выданных вышестоящим издателем.
+// Возьмите следующие 20 значений после этих первых 50.
+// Берите только чётные числа.
+main {
+    print("First ----")
+    [Int](1 ... 100)
+        .publisher
+        .dropFirst(50)
+        .prefix(20)
+        .filter { $0.isMultiple(of: 2) }
+        .sink {
+            print($0)
+        }
+        .store(in: &subscriptions)
+}
 
-let just = Just("Hello world!")
+// 2. Создайте пример, который собирает коллекцию строк, преобразует её в коллекцию чисел и вычисляет среднее арифметическое этих значений.
+main {
+    print("Second ----")
+    let publisher = ["a", "1", "10", "b", "0x0a", "asf", "5"].publisher
 
-_ = just.sink(receiveCompletion: {
-    print("just Received completion", $0)
-}, receiveValue: {
-    print("just Received value", $0)
-})
+    let intPublisher = publisher.compactMap { Int($0) }
+    intPublisher
+        .reduce(0, { accum, next in accum + next })
+        .sink {
+            let count = intPublisher.sequence.count
+            let adv = $0 / count
+            print("sum = \($0), count = \(count), adv = \(adv)")
+        }
+        .store(in: &subscriptions)
+}
+
+
+main {
+    print("3 ----")
+    let publisher = [5, 6, 7].publisher
+    publisher.prepend([3, 4])
+        .prepend(Set(1...2))
+        .sink(receiveValue: { print($0) })
+        .store(in: &subscriptions)
+}
+
+main {
+
+}
