@@ -41,19 +41,27 @@ main {
         return timer
     }
 
-    func availableProducts() -> AnyPublisher<[ProductShort], any Error> {
+    func availableProducts() -> AnyPublisher<[ProductShort], MyError> {
         guard let url = URL(string: "https://swiftcleancodemock.onrender.com/products") else {
             return AnyPublisher(
-                Fail<[ProductShort], Error>(error: URLError(.cannotConnectToHost))
+                Fail<[ProductShort], MyError>(error: .invalidUrl)
             )
         }
-
-        let publisher = URLSession.shared.dataTaskPublisher(for: url)
+        let publisher = URLSession.shared
+            .dataTaskPublisher(for: url)
+            .retry(2)
             .map(\.data)
-            .print()
             .decode(type: [ProductShort].self, decoder: JSONDecoder())
             .print()
             .share()
+            .mapError( { error -> MyError in
+                switch error {
+                case is URLError:
+                    return MyError.urlError
+                default:
+                    return MyError.unknownError
+                }
+            })
             .eraseToAnyPublisher()
 
         return publisher
@@ -75,5 +83,11 @@ main {
 
     class TestClass {
         @ObservedObject var model = ModelData()
+    }
+
+    enum MyError: Error {
+        case invalidUrl
+        case urlError
+        case unknownError
     }
 }
